@@ -16,15 +16,51 @@ export async function POST(request: NextRequest) {
     try {
       rawText = await request.text()
       console.log('Raw request body:', rawText)
-      body = JSON.parse(rawText)
+
+      // Try to fix common JSON issues with unescaped quotes in strings
+      let fixedText = rawText
+
+      // Fix unescaped quotes in summary field specifically
+      const summaryMatch = rawText.match(/"summary":\s*"([^"]*(?:"[^"]*"[^"]*)*)"/)
+      if (summaryMatch) {
+        const originalSummary = summaryMatch[1]
+        const fixedSummary = originalSummary.replace(/"/g, '\\"')
+        fixedText = rawText.replace(
+          `"summary": "${originalSummary}"`,
+          `"summary": "${fixedSummary}"`
+        )
+        console.log('Fixed JSON with escaped quotes:', fixedText)
+      }
+
+      body = JSON.parse(fixedText)
       console.log('Parsed webhook data:', JSON.stringify(body, null, 2))
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError)
       console.log('Raw body that failed to parse:', rawText)
-      return NextResponse.json(
-        { success: false, error: `Invalid JSON format: ${parseError.message}` },
-        { status: 400 }
-      )
+
+      // Try a more aggressive fix for quotes
+      try {
+        console.log('Attempting aggressive quote fixing...')
+        let aggressivelyFixed = rawText
+
+        // Replace unescaped quotes within string values (but not the structural quotes)
+        aggressivelyFixed = aggressivelyFixed.replace(
+          /"summary":\s*"([^"]+(?:"[^"]*"[^"]*)*[^"]*)"/g,
+          (match, content) => {
+            const escaped = content.replace(/"/g, '\\"')
+            return `"summary": "${escaped}"`
+          }
+        )
+
+        body = JSON.parse(aggressivelyFixed)
+        console.log('Successfully parsed with aggressive fixing')
+      } catch (secondError) {
+        console.error('Aggressive fixing also failed:', secondError)
+        return NextResponse.json(
+          { success: false, error: `Invalid JSON format: ${parseError.message}` },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate that we have some data
