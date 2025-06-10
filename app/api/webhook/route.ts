@@ -12,15 +12,17 @@ export async function POST(request: NextRequest) {
     console.log('Content-Type:', contentType)
 
     let body
+    let rawText = ''
     try {
-      body = await request.json()
-      console.log('Received webhook data:', JSON.stringify(body, null, 2))
+      rawText = await request.text()
+      console.log('Raw request body:', rawText)
+      body = JSON.parse(rawText)
+      console.log('Parsed webhook data:', JSON.stringify(body, null, 2))
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError)
-      const text = await request.text()
-      console.log('Raw body:', text)
+      console.log('Raw body that failed to parse:', rawText)
       return NextResponse.json(
-        { success: false, error: 'Invalid JSON format' },
+        { success: false, error: `Invalid JSON format: ${parseError.message}` },
         { status: 400 }
       )
     }
