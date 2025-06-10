@@ -5,7 +5,23 @@ let callDataStore: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      // Try to fix JSON with unescaped quotes
+      const rawText = await request.text()
+      console.log('Raw text with potential quote issues:', rawText)
+
+      // Fix unescaped quotes in string values
+      const fixedText = rawText
+        .replace(/"transcript":\s*"([^"]*)"([^"]*)"([^"]*)"/g, '"transcript": "$1\\"$2\\"$3"')
+        .replace(/"caller_name":\s*"([^"]*)"([^"]*)"([^"]*)"/g, '"caller_name": "$1\\"$2\\"$3"')
+
+      console.log('Fixed text:', fixedText)
+      body = JSON.parse(fixedText)
+    }
+
     console.log('Received webhook data:', JSON.stringify(body, null, 2))
 
     // Add timestamp to the received data
