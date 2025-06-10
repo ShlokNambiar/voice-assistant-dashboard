@@ -80,21 +80,22 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100">
       <div className="flex flex-col">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-gradient-to-r from-white/90 via-purple-50/80 to-blue-50/80 px-6 backdrop-blur-sm">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-gradient-to-r from-white/90 via-purple-50/80 to-blue-50/80 px-4 sm:px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
               <Headphones className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold">Voice Assistant Dashboard</h1>
+            <h1 className="text-lg sm:text-xl font-semibold">Voice Assistant Dashboard</h1>
           </div>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-2 sm:gap-4">
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-1 rounded-md border border-red-200">
-                <AlertCircle className="h-4 w-4" />
-                <span>Webhook Error: {error}</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-red-600 bg-red-50 px-2 sm:px-3 py-1 rounded-md border border-red-200">
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Webhook Error: {error}</span>
+                <span className="sm:hidden">Error</span>
               </div>
             )}
-            <div className="text-sm text-muted-foreground">Last updated: {metrics.lastRefreshed}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground hidden md:block">Last updated: {metrics.lastRefreshed}</div>
             <Button
               variant="outline"
               size="sm"
@@ -102,13 +103,13 @@ export default function Dashboard() {
               disabled={isRefreshing}
               className="border-primary/20 hover:bg-gradient-to-r hover:from-purple-100 hover:to-blue-100 hover:text-purple-700"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-              Refresh
+              <RefreshCw className={`mr-0 sm:mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col gap-6 p-6 md:gap-8 md:p-8">
+        <main className="flex flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6 md:gap-8 md:p-8">
           {isInitialLoading ? (
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="flex flex-col items-center gap-4">
@@ -118,7 +119,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="gradient-card purple overflow-hidden shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Total Calls Made</CardTitle>
@@ -202,8 +203,8 @@ export default function Dashboard() {
 
           <Tabs defaultValue="recent-calls" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 bg-gradient-to-r from-purple-50 to-blue-50">
-              <TabsTrigger value="recent-calls">Recent Calls</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="recent-calls" className="text-sm">Recent Calls</TabsTrigger>
+              <TabsTrigger value="analytics" className="text-sm">Analytics</TabsTrigger>
             </TabsList>
             <TabsContent value="recent-calls" className="border-none p-0 pt-6">
               <Card className="shadow-md">
@@ -216,7 +217,7 @@ export default function Dashboard() {
               </Card>
             </TabsContent>
             <TabsContent value="analytics" className="border-none p-0 pt-6">
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
                 <Card className="shadow-md overflow-hidden">
                   <CardHeader className="bg-gradient-to-r from-blue-100 via-cyan-50 to-teal-100 flex flex-row items-center justify-between">
                     <CardTitle>Calls Per Day</CardTitle>

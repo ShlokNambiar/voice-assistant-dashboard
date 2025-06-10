@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { formatDistanceToNow } from "date-fns"
 import { type CallData } from "@/lib/webhook-service"
 
@@ -28,16 +29,15 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
               <TableHead>Caller</TableHead>
-              <TableHead>Phone</TableHead>
               <TableHead>Duration</TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>Transcript</TableHead>
+              <TableHead>Summary</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                 No call data available. Waiting for webhook data...
               </TableCell>
             </TableRow>
@@ -48,16 +48,15 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
-            <TableHead>Caller</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>Duration</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Transcript</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead className="min-w-[100px]">Caller</TableHead>
+            <TableHead className="min-w-[80px] hidden sm:table-cell">Duration</TableHead>
+            <TableHead className="min-w-[100px]">Time</TableHead>
+            <TableHead className="min-w-[150px]">Summary</TableHead>
+            <TableHead className="min-w-[80px]">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -67,20 +66,40 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
               className="hover:bg-gradient-to-r hover:from-purple-25 hover:via-pink-25 hover:to-blue-25"
             >
               <TableCell className="font-medium">{call.caller_name}</TableCell>
-              <TableCell>{call.phone}</TableCell>
-              <TableCell>{call.duration}</TableCell>
-              <TableCell>{formatDistanceToNow(call.timestamp, { addSuffix: true })}</TableCell>
-              <TableCell className="max-w-[200px]">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="truncate">{call.transcript}</div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[300px]">
-                      <p>{call.transcript}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              <TableCell className="hidden sm:table-cell">{call.duration}</TableCell>
+              <TableCell className="text-sm">{formatDistanceToNow(call.timestamp, { addSuffix: true })}</TableCell>
+              <TableCell className="max-w-[200px] sm:max-w-[300px]">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <div className="truncate cursor-pointer text-blue-600 hover:text-blue-800 hover:underline">
+                      {call.transcript}
+                    </div>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[80vh] overflow-y-auto mx-4">
+                    <DialogHeader>
+                      <DialogTitle>Call Summary</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <strong>Caller:</strong> {call.caller_name}
+                        </div>
+                        <div>
+                          <strong>Duration:</strong> {call.duration}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>Time:</strong> {formatDistanceToNow(call.timestamp, { addSuffix: true })}
+                      </div>
+                      <div>
+                        <strong>Full Summary:</strong>
+                        <div className="mt-2 p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm">
+                          {call.transcript}
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </TableCell>
               <TableCell>
                 <span

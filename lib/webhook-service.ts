@@ -31,7 +31,9 @@ const getDataUrl = () => {
     // Server-side: use absolute URL for production or localhost for dev
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
+      : process.env.NODE_ENV === 'development'
+        ? `http://localhost:${process.env.PORT || 3001}`
+        : 'http://localhost:3000'
     return `${baseUrl}/api/webhook`
   }
 }
