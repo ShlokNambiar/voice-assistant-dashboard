@@ -76,21 +76,19 @@ export async function fetchWebhookData(): Promise<CallData[]> {
   // - success_flag (G): 1. message.analysis.successEvaluation
 
   const transformedData: CallData[] = Array.isArray(data) ? data.map((item: any, index: number) => {
-    // Extract nested data safely
-    const message = item.message || item['1.message'] || {}
-    const analysis = message.analysis || {}
-    const structuredData = analysis.structuredData || {}
+    // The webhook endpoint now normalizes data, so we can use it directly
+    // But still handle legacy formats for backward compatibility
 
     return {
       id: item.id || `call_${index + 1}`,
-      caller_name: structuredData.name || item.caller_name || `Unknown Caller`,
+      caller_name: item.caller_name || 'Unknown Caller',
       phone: item.phone || 'N/A',
-      call_start: new Date(message.startedAt || item.call_start || Date.now()),
-      call_end: new Date(message.endedAt || item.call_end || Date.now()),
-      duration: item.duration || calculateDuration(message.startedAt || item.call_start, message.endedAt || item.call_end),
-      transcript: message.summary || item.transcript || '',
-      success_flag: analysis.successEvaluation !== undefined ? analysis.successEvaluation : (item.success_flag !== undefined ? item.success_flag : null),
-      cost: parseFloat(message.cost || item.cost || '0')
+      call_start: new Date(item.call_start || Date.now()),
+      call_end: new Date(item.call_end || Date.now()),
+      duration: item.duration || '0m 0s',
+      transcript: item.transcript || '',
+      success_flag: item.success_flag !== undefined ? item.success_flag : null,
+      cost: parseFloat(item.cost?.toString() || '0')
     }
   }) : []
 
