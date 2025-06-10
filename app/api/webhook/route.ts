@@ -13,35 +13,13 @@ export async function POST(request: NextRequest) {
       const rawText = await request.text()
       console.log('Raw malformed JSON:', rawText)
 
-      // Fix missing quotes around string values
+      // Fix unescaped quotes in transcript field specifically
       let fixedText = rawText
-        // Fix summary field missing quotes
-        .replace(/"summary":\s*([^,}]+),/g, (match, value) => {
-          if (!value.trim().startsWith('"')) {
-            return `"summary": "${value.trim()}",`
-          }
-          return match
+        .replace(/"transcript":\s*"([^"]*)"([^"]*)"([^"]*)"/g, (match, before, middle, after) => {
+          return `"transcript": "${before}\\"${middle}\\"${after}"`
         })
-        // Fix _name field missing quotes
-        .replace(/"_name":\s*([^,}]+)/g, (match, value) => {
-          if (!value.trim().startsWith('"')) {
-            return `"_name": "${value.trim()}"`
-          }
-          return match
-        })
-        // Fix caller_name field missing quotes
-        .replace(/"caller_name":\s*([^,}]+),/g, (match, value) => {
-          if (!value.trim().startsWith('"')) {
-            return `"caller_name": "${value.trim()}",`
-          }
-          return match
-        })
-        // Fix transcript field missing quotes
-        .replace(/"transcript":\s*([^,}]+),/g, (match, value) => {
-          if (!value.trim().startsWith('"')) {
-            return `"transcript": "${value.trim()}",`
-          }
-          return match
+        .replace(/"caller_name":\s*"([^"]*)"([^"]*)"([^"]*)"/g, (match, before, middle, after) => {
+          return `"caller_name": "${before}\\"${middle}\\"${after}"`
         })
 
       console.log('Fixed JSON:', fixedText)

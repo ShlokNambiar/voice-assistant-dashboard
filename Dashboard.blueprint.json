@@ -72,7 +72,7 @@
                 "gzip": true,
                 "useMtls": false,
                 "contentType": "application/json",
-                "data": "{\r\n  \"id\": \"{{1.id}}\",\r\n  \"caller_name\": \"{{1.message.analysis.structuredData._name}}\",\r\n  \"call_start\": \"{{1.message.startedAt}}\",\r\n  \"call_end\": \"{{1.message.endedAt}}\",\r\n  \"transcript\": \"{{1.message.summary}}\",\r\n  \"success_flag\": {{1.message.analysis.successEvaluation}},\r\n  \"cost\": {{1.message.cost}}\r\n}",
+                "data": "{\r\n  \"id\": \"{{1.message.phoneNumber.id}}\",\r\n  \"caller_name\": \"{{1.message.analysis.structuredData._name}}\",\r\n  \"call_start\": \"{{1.message.startedAt}}\",\r\n  \"call_end\": \"{{1.message.endedAt}}\",\r\n  \"transcript\": \"{{replace(1.message.summary; \"\\\"\"; \"\\\\\\\"\")}}\",\r\n  \"success_flag\": {{1.message.analysis.successEvaluation}},\r\n  \"cost\": {{1.message.cost}}\r\n}",
                 "followAllRedirects": false
             },
             "metadata": {
