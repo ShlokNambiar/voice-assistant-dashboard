@@ -13,10 +13,30 @@ export async function POST(request: NextRequest) {
       console.log('Received webhook data:', JSON.stringify(body, null, 2))
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError)
-      return NextResponse.json(
-        { success: false, error: `Invalid JSON: ${parseError.message}` },
-        { status: 400 }
-      )
+
+      // Try to fix common JSON issues with unescaped quotes
+      try {
+        const rawText = await request.text()
+        console.log('Raw text:', rawText)
+
+        // Fix unescaped quotes in summary field
+        let fixedText = rawText.replace(
+          /"summary":\s*"([^"]*)"([^"]*)"([^"]*)"/g,
+          (match, before, middle, after) => {
+            return `"summary": "${before}\\"${middle}\\"${after}"`
+          }
+        )
+
+        console.log('Fixed text:', fixedText)
+        body = JSON.parse(fixedText)
+        console.log('Successfully parsed fixed JSON')
+      } catch (fixError) {
+        console.error('Could not fix JSON:', fixError)
+        return NextResponse.json(
+          { success: false, error: `Invalid JSON: ${parseError.message}` },
+          { status: 400 }
+        )
+      }
     }
 
     // Very basic validation - just check if we have any data
