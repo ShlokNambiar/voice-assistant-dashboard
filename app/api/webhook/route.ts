@@ -5,67 +5,20 @@ let callDataStore: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Webhook POST request received')
+    const body = await request.json()
+    console.log('Received webhook data:', JSON.stringify(body, null, 2))
 
-    let body
-    try {
-      body = await request.json()
-      console.log('Received webhook data:', JSON.stringify(body, null, 2))
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', parseError)
-
-      // Try to fix common JSON issues with unescaped quotes
-      try {
-        const rawText = await request.text()
-        console.log('Raw text:', rawText)
-
-        // Fix unescaped quotes in summary field
-        let fixedText = rawText.replace(
-          /"summary":\s*"([^"]*)"([^"]*)"([^"]*)"/g,
-          (match, before, middle, after) => {
-            return `"summary": "${before}\\"${middle}\\"${after}"`
-          }
-        )
-
-        console.log('Fixed text:', fixedText)
-        body = JSON.parse(fixedText)
-        console.log('Successfully parsed fixed JSON')
-      } catch (fixError) {
-        console.error('Could not fix JSON:', fixError)
-        return NextResponse.json(
-          { success: false, error: `Invalid JSON: ${parseError.message}` },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Very basic validation - just check if we have any data
-    if (!body) {
-      return NextResponse.json(
-        { success: false, error: 'No data received' },
-        { status: 400 }
-      )
-    }
-
-    // Create a simple normalized data structure with only essential fields
+    // Add timestamp to the received data
     const callData = {
-      id: body.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      caller_name: extractCallerName(body) || 'Unknown Caller',
-      call_start: extractCallStart(body) || new Date().toISOString(),
-      call_end: extractCallEnd(body) || new Date().toISOString(),
-      duration: extractDuration(body) || '0m 0s',
-      transcript: extractTranscript(body) || 'No summary available',
-      success_flag: extractSuccessFlag(body),
-      cost: extractCost(body) || 0,
-      received_at: new Date().toISOString()
+      ...body,
+      received_at: new Date().toISOString(),
+      id: body.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
-
-    console.log('Processed call data:', JSON.stringify(callData, null, 2))
 
     // Store the call data
     callDataStore.push(callData)
 
-    // Keep only the last 100 calls
+    // Keep only the last 100 calls to prevent memory issues
     if (callDataStore.length > 100) {
       callDataStore = callDataStore.slice(-100)
     }
@@ -79,101 +32,15 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error processing webhook:', error)
     return NextResponse.json(
-      { success: false, error: 'Server error' },
-      { status: 500 }
+      { success: false, error: 'Failed to process webhook data' },
+      { status: 400 }
     )
   }
 }
 
-// Simple helper functions to extract data safely
-function extractCallerName(data: any): string | null {
-  try {
-    return data?.caller_name ||
-           data?.message?.analysis?.structuredData?.name ||
-           data?.message?.analysis?.structuredData?._name ||
-           data?.name ||
-           null
-  } catch {
-    return null
-  }
-}
 
-function extractCallStart(data: any): string | null {
-  try {
-    return data?.call_start ||
-           data?.message?.startedAt ||
-           data?.startedAt ||
-           null
-  } catch {
-    return null
-  }
-}
-
-function extractCallEnd(data: any): string | null {
-  try {
-    return data?.call_end ||
-           data?.message?.endedAt ||
-           data?.endedAt ||
-           null
-  } catch {
-    return null
-  }
-}
-
-function extractDuration(data: any): string | null {
-  try {
-    if (data?.duration) return data.duration
-
-    const start = extractCallStart(data)
-    const end = extractCallEnd(data)
-
-    if (!start || !end) return null
-
-    const startTime = new Date(start)
-    const endTime = new Date(end)
-    const diffMs = endTime.getTime() - startTime.getTime()
-    const diffSeconds = Math.floor(Math.abs(diffMs) / 1000)
-    const minutes = Math.floor(diffSeconds / 60)
-    const seconds = diffSeconds % 60
-    return `${minutes}m ${seconds}s`
-  } catch {
-    return null
-  }
-}
-
-function extractTranscript(data: any): string | null {
-  try {
-    return data?.transcript ||
-           data?.message?.summary ||
-           data?.summary ||
-           null
-  } catch {
-    return null
-  }
-}
-
-function extractSuccessFlag(data: any): boolean | null {
-  try {
-    if (data?.success_flag !== undefined) return data.success_flag
-    if (data?.message?.analysis?.successEvaluation !== undefined) return data.message.analysis.successEvaluation
-    if (data?.successEvaluation !== undefined) return data.successEvaluation
-    return null
-  } catch {
-    return null
-  }
-}
-
-function extractCost(data: any): number | null {
-  try {
-    const cost = data?.cost || data?.message?.cost
-    if (cost === undefined || cost === null) return null
-    return parseFloat(cost.toString()) || 0
-  } catch {
-    return null
-  }
-}
 
 export async function GET() {
   // Return stored call data for the dashboard
