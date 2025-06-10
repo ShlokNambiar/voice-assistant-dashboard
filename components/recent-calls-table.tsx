@@ -24,15 +24,15 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
 
   if (recentCalls.length === 0) {
     return (
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50">
-              <TableHead>Caller</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Summary</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="min-w-[100px]">Caller</TableHead>
+              <TableHead className="min-w-[80px] hidden sm:table-cell">Duration</TableHead>
+              <TableHead className="min-w-[100px]">Time</TableHead>
+              <TableHead className="min-w-[150px]">Summary</TableHead>
+              <TableHead className="min-w-[80px]">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,12 +104,14 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
               <TableCell>
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    call.success
+                    call.success === true
                       ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200"
+                      : call.success === false
+                      ? "bg-gradient-to-r from-red-100 to-rose-100 text-red-800 border border-red-200"
                       : "bg-gradient-to-r from-yellow-100 to-orange-100 text-orange-800 border border-orange-200"
                   }`}
                 >
-                  {call.success ? "Success" : "Incomplete"}
+                  {call.success === true ? "Success" : call.success === false ? "Failed" : "Incomplete"}
                 </span>
               </TableCell>
             </TableRow>

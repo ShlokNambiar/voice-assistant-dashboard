@@ -8,7 +8,7 @@ export interface CallData {
   call_end: Date
   duration: string
   transcript: string
-  success_flag: boolean
+  success_flag: boolean | null // true = success, false = failed, null = incomplete
   cost: number // Cost in rupees
 }
 
@@ -89,7 +89,7 @@ export async function fetchWebhookData(): Promise<CallData[]> {
       call_end: new Date(message.endedAt || item.call_end || Date.now()),
       duration: item.duration || calculateDuration(message.startedAt || item.call_start, message.endedAt || item.call_end),
       transcript: message.summary || item.transcript || '',
-      success_flag: analysis.successEvaluation !== undefined ? analysis.successEvaluation : (item.success_flag !== undefined ? item.success_flag : false),
+      success_flag: analysis.successEvaluation !== undefined ? analysis.successEvaluation : (item.success_flag !== undefined ? item.success_flag : null),
       cost: parseFloat(message.cost || item.cost || '0')
     }
   }) : []
@@ -127,7 +127,7 @@ function calculateDuration(startTime: string | Date, endTime: string | Date): st
 
 export async function calculateMetrics(data: CallData[]): Promise<DashboardMetrics> {
   const totalCalls = data.length
-  const successfulCalls = data.filter(call => call.success_flag).length
+  const successfulCalls = data.filter(call => call.success_flag === true).length
   const totalCost = data.reduce((sum, call) => sum + call.cost, 0)
   const currentBalance = INITIAL_BALANCE - totalCost
 
