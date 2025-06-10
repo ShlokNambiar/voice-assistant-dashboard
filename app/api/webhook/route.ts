@@ -9,16 +9,42 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json()
     } catch (parseError) {
-      // Try to fix JSON with unescaped quotes
+      // Try to fix severely malformed JSON
       const rawText = await request.text()
-      console.log('Raw text with potential quote issues:', rawText)
+      console.log('Raw malformed JSON:', rawText)
 
-      // Fix unescaped quotes in string values
-      const fixedText = rawText
-        .replace(/"transcript":\s*"([^"]*)"([^"]*)"([^"]*)"/g, '"transcript": "$1\\"$2\\"$3"')
-        .replace(/"caller_name":\s*"([^"]*)"([^"]*)"([^"]*)"/g, '"caller_name": "$1\\"$2\\"$3"')
+      // Fix missing quotes around string values
+      let fixedText = rawText
+        // Fix summary field missing quotes
+        .replace(/"summary":\s*([^,}]+),/g, (match, value) => {
+          if (!value.trim().startsWith('"')) {
+            return `"summary": "${value.trim()}",`
+          }
+          return match
+        })
+        // Fix _name field missing quotes
+        .replace(/"_name":\s*([^,}]+)/g, (match, value) => {
+          if (!value.trim().startsWith('"')) {
+            return `"_name": "${value.trim()}"`
+          }
+          return match
+        })
+        // Fix caller_name field missing quotes
+        .replace(/"caller_name":\s*([^,}]+),/g, (match, value) => {
+          if (!value.trim().startsWith('"')) {
+            return `"caller_name": "${value.trim()}",`
+          }
+          return match
+        })
+        // Fix transcript field missing quotes
+        .replace(/"transcript":\s*([^,}]+),/g, (match, value) => {
+          if (!value.trim().startsWith('"')) {
+            return `"transcript": "${value.trim()}",`
+          }
+          return match
+        })
 
-      console.log('Fixed text:', fixedText)
+      console.log('Fixed JSON:', fixedText)
       body = JSON.parse(fixedText)
     }
 
@@ -51,7 +77,7 @@ export async function POST(request: NextRequest) {
     console.error('Error processing webhook:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to process webhook data' },
-      { status: 400 }
+      { status: 500 }
     )
   }
 }
