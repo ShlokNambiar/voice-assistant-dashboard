@@ -6,6 +6,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { formatDistanceToNow } from "date-fns"
 import { type CallData } from "@/lib/webhook-service"
 
+// Helper function to format duration (handles both string and number types)
+function formatDuration(duration: string | number): string {
+  if (typeof duration === 'number') {
+    // Convert seconds to "Xm Ys" format
+    const minutes = Math.floor(duration / 60)
+    const seconds = Math.floor(duration % 60)
+    return `${minutes}m ${seconds}s`
+  }
+  
+  // If it's already a string, return as is
+  return duration
+}
+
 interface RecentCallsTableProps {
   callData: CallData[]
 }
@@ -66,7 +79,7 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
               className="hover:bg-gradient-to-r hover:from-purple-25 hover:via-pink-25 hover:to-blue-25"
             >
               <TableCell className="font-medium">{call.caller_name}</TableCell>
-              <TableCell className="hidden sm:table-cell">{call.duration}</TableCell>
+              <TableCell className="hidden sm:table-cell">{formatDuration(call.duration)}</TableCell>
               <TableCell className="text-sm">{formatDistanceToNow(call.timestamp, { addSuffix: true })}</TableCell>
               <TableCell className="max-w-[200px] sm:max-w-[300px]">
                 <Dialog>
@@ -85,7 +98,7 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                           <strong>Caller:</strong> {call.caller_name}
                         </div>
                         <div>
-                          <strong>Duration:</strong> {call.duration}
+                          <strong>Duration:</strong> {formatDuration(call.duration)}
                         </div>
                       </div>
                       <div>
