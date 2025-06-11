@@ -117,18 +117,6 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                         <div className="sm:col-span-2">
                           <strong>Phone:</strong> {call.phone || 'N/A'}
                         </div>
-                        <div className="sm:col-span-2">
-                          <strong>Transcript:</strong>
-                          <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                            {call.transcript || 'No transcript available'}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <strong>Full Summary:</strong>
-                        <div className="mt-2 p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm">
-                          {call.transcript}
-                        </div>
                       </div>
                     </div>
                   </DialogContent>
