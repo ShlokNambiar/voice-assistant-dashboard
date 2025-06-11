@@ -9,68 +9,53 @@ initDB().catch(console.error);
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    
-    // If data is an array, use it directly, otherwise wrap in array
+    console.log('📥 Webhook received with data:', JSON.stringify(data, null, 2));
+
+    // Process the data array or single object
     const newData = Array.isArray(data) ? data : [data];
     let savedCount = 0;
 
-    // Process each call in the webhook data
     for (const item of newData) {
       try {
-        // Transform and validate the data
+        // Calculate duration in seconds if not provided
+        const callStart = new Date(item['Call Start'] || item.call_start || new Date().toISOString());
+        const callEnd = new Date(item['Call End'] || item.call_end || new Date().toISOString());
+        const duration = item.duration || Math.floor((callEnd.getTime() - callStart.getTime()) / 1000);
+
+        // Transform the data to match our CallData interface
         const callData: CallData = {
-          id: item.id || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          caller_name: item.caller_name || 'Unknown Caller',
-          phone: item.phone || 'N/A',
-          call_start: item.call_start || new Date().toISOString(),
-          call_end: item.call_end || new Date().toISOString(),
-          duration: item.duration || '0m 0s',
-          transcript: item.transcript || item.summary || '',
-          success_flag: item.success_flag !== undefined ? Boolean(item.success_flag) : null,
-          cost: parseFloat(item.cost?.toString() || '0')
+          id: item.ID?.toString() || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          caller_name: item['Caller Name']?.toString() || 'Unknown Caller',
+          phone: item.phone?.toString() || item.ID?.toString() || '',
+          call_start: callStart.toISOString(),
+          call_end: callEnd.toISOString(),
+          duration: duration,
+          transcript: item.Summary?.toString() || item.transcript?.toString() || '',
+          success_flag: Boolean(item.Success || item.success_flag || false),
+          cost: parseFloat(item.Cost?.toString() || item.cost?.toString() || '0')
         };
 
-        // Validate required fields
-        const requiredFields: (keyof CallData)[] = ['id', 'caller_name', 'phone', 'call_start', 'call_end', 'duration', 'transcript', 'success_flag', 'cost'];
-        const missingFields = requiredFields.filter(field => callData[field] === undefined);
-        
-        if (missingFields.length > 0) {
-          console.error('❌ Missing required fields:', missingFields);
-          return NextResponse.json(
-            { success: false, error: `Missing required fields: ${missingFields.join(', ')}` }, 
-            { status: 400 }
-          );
-        }
+        console.log('📝 Processed call data:', callData);
 
-        try {
-          // Save to database
-          console.log('💾 Attempting to save call data...');
-          const saved = await saveCallData(callData);
-          console.log('✅ Save result:', saved);
-          savedCount++;
-        } catch (dbError) {
-          console.error('❌ Database error:', dbError);
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: 'Failed to save to database',
-              details: dbError instanceof Error ? dbError.message : String(dbError)
-            }, 
-            { status: 500 }
-          );
-        }
+        // Save to database
+        console.log('💾 Attempting to save call data...');
+        const saved = await saveCallData(callData);
+        console.log('✅ Save result:', saved);
+        savedCount++;
+        
       } catch (error) {
         console.error('❌ Error processing call data:', error, item);
         // Continue processing other items even if one fails
       }
     }
-    
+
     return NextResponse.json({ 
       success: true, 
       saved: savedCount,
       total: newData.length,
-      message: 'Call data saved successfully'
+      message: 'Call data processed successfully'
     });
+    
   } catch (error) {
     console.error('❌ Error processing webhook:', error);
     return NextResponse.json(
