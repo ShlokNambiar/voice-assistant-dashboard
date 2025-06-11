@@ -56,21 +56,47 @@ export default function Dashboard() {
       console.log('API Response:', data) // Debug log
       
       // If data is an array, use it directly, otherwise use data.data if it exists
-      const callsData = Array.isArray(data) ? data : data.data || []
+      let callsData: CallData[] = []
       
-      // If we got an empty array, check if there's a different structure
-      if (callsData.length === 0 && data && typeof data === 'object') {
-        // Try to extract calls data from the response object
+      if (Array.isArray(data)) {
+        callsData = data
+      } else if (data && Array.isArray(data.data)) {
+        callsData = data.data
+      } else if (data && typeof data === 'object') {
+        // Try to find an array in the response object
         const possibleData = Object.values(data).find(Array.isArray)
         if (possibleData) {
-          callsData.push(...possibleData)
+          callsData = Array.isArray(possibleData) ? possibleData : []
         }
       }
       
       console.log('Processed calls data:', callsData) // Debug log
-      const calculatedMetrics = await calculateMetrics(callsData)
+      
+      // Process each call to ensure data consistency
+      const processedCalls = callsData.map(call => ({
+        ...call,
+        // Ensure success_flag is a boolean
+        success_flag: call.success_flag !== undefined ? Boolean(call.success_flag) : false,
+        // Ensure cost is a number
+        cost: typeof call.cost === 'string' ? parseFloat(call.cost) : (call.cost || 0),
+        // Ensure duration is a number (in seconds)
+        duration: typeof call.duration === 'string' ? 
+          (() => {
+            const match = call.duration.match(/(\d+)m\s*(\d*)s?/)
+            if (match) {
+              const minutes = parseInt(match[1]) || 0
+              const seconds = parseInt(match[2]) || 0
+              return (minutes * 60) + seconds
+            }
+            return 0
+          })() : 
+          (typeof call.duration === 'number' ? call.duration : 0)
+      }))
+      
+      const calculatedMetrics = await calculateMetrics(processedCalls)
+      console.log('Calculated metrics:', calculatedMetrics) // Debug log
 
-      setCallData(callsData)
+      setCallData(processedCalls)
       setMetrics(prev => ({
         ...calculatedMetrics,
         // Keep the existing totalBalance to prevent it from being reset

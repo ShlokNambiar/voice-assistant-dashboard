@@ -18,21 +18,37 @@ export async function POST(request: NextRequest) {
     for (const item of newData) {
       try {
         // Calculate duration in seconds if not provided
-        const callStart = new Date(item['Call Start'] || item.call_start || new Date().toISOString());
-        const callEnd = new Date(item['Call End'] || item.call_end || new Date().toISOString());
-        const duration = item.duration || Math.floor((callEnd.getTime() - callStart.getTime()) / 1000);
+        const callStart = new Date(item.call_start || item['Call Start'] || new Date().toISOString());
+        const callEnd = new Date(item.call_end || item['Call End'] || new Date().toISOString());
+        
+        // Ensure duration is a number (in seconds)
+        let duration = 0;
+        if (typeof item.duration === 'string') {
+          // Parse duration string like "2m 30s" to seconds
+          const match = item.duration.match(/(\d+)m\s*(\d*)s?/);
+          if (match) {
+            const minutes = parseInt(match[1]) || 0;
+            const seconds = parseInt(match[2]) || 0;
+            duration = (minutes * 60) + seconds;
+          }
+        } else if (typeof item.duration === 'number') {
+          duration = Math.floor(item.duration);
+        } else {
+          // Calculate from timestamps if duration not provided
+          duration = Math.floor((callEnd.getTime() - callStart.getTime()) / 1000);
+        }
 
         // Transform the data to match our CallData interface
         const callData: CallData = {
-          id: item.ID?.toString() || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          caller_name: item['Caller Name']?.toString() || 'Unknown Caller',
-          phone: item.phone?.toString() || item.ID?.toString() || '',
+          id: item.id || item.ID?.toString() || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          caller_name: item.caller_name || item['Caller Name']?.toString() || 'Unknown Caller',
+          phone: item.phone?.toString() || '',
           call_start: callStart.toISOString(),
           call_end: callEnd.toISOString(),
           duration: duration,
-          transcript: item.Summary?.toString() || item.transcript?.toString() || '',
-          success_flag: Boolean(item.Success || item.success_flag || false),
-          cost: parseFloat(item.Cost?.toString() || item.cost?.toString() || '0')
+          transcript: item.transcript || item.Summary?.toString() || '',
+          success_flag: item.success_flag !== undefined ? Boolean(item.success_flag) : (item.Success !== undefined ? Boolean(item.Success) : false),
+          cost: typeof item.cost === 'number' ? item.cost : parseFloat(item.cost || item.Cost || '0')
         };
 
         console.log('📝 Processed call data:', callData);
