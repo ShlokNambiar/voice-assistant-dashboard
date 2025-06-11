@@ -7,8 +7,26 @@ interface CallDurationChartProps {
   callData: CallData[]
 }
 
-const RADIAN = Math.PI / 180
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+interface LabelProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+  index: number;
+}
+
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  percent,
+  index
+}: LabelProps) => {
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5
   const x = cx + radius * Math.cos(-midAngle * RADIAN)
   const y = cy + radius * Math.sin(-midAngle * RADIAN)
@@ -17,20 +35,25 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
     <text
       x={x}
       y={y}
-      fill="white"
+      fill="#4C1D95" // Dark purple color for better visibility
       textAnchor={x > cx ? "start" : "end"}
       dominantBaseline="central"
       fontWeight="bold"
       fontSize={12}
+      style={{
+        textShadow: '0 0 3px white, 0 0 5px white' // White outline for better contrast
+      }}
     >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
   )
 }
 
-export function CallDurationChart({ callData }: CallDurationChartProps) {
-  // Only use real webhook data
-  const data = getCallDurationData(callData)
+export function CallDurationChart({ callData = [] }: CallDurationChartProps) {
+  // Use webhook data and ensure we have valid data
+  const data = callData.length > 0 ? getCallDurationData(callData) : [
+    { name: "No Data", value: 1, color: "#E5E7EB" }
+  ]
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">

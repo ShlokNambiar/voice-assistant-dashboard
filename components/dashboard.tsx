@@ -65,8 +65,8 @@ export default function Dashboard() {
       } else if (data && typeof data === 'object') {
         // Try to find an array in the response object
         const possibleData = Object.values(data).find(Array.isArray)
-        if (possibleData) {
-          callsData = Array.isArray(possibleData) ? possibleData : []
+        if (possibleData && Array.isArray(possibleData)) {
+          callsData = possibleData
         }
       }
       
@@ -118,13 +118,13 @@ export default function Dashboard() {
       setIsInitialLoading(false)
     }
     loadInitialData()
-  }, [])
-
-  // Auto refresh every 10 seconds to check for new webhook data
-  useEffect(() => {
+    
+    // Set up auto-refresh every 10 seconds
     const interval = setInterval(refreshData, 10 * 1000)
     return () => clearInterval(interval)
   }, [])
+
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100">

@@ -157,13 +157,28 @@ export async function calculateMetrics(data: CallData[]): Promise<DashboardMetri
   const avgCallDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0
   const avgCallDuration = formatDuration(avgCallDurationSeconds)
   
+  // Format numbers with Indian numbering system
+  const formatINR = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount).replace('₹', '₹')
+  }
+
+  const currentBalance = INITIAL_BALANCE - totalCost
+  const avgCallCostValue = totalCalls > 0 ? (totalCost / totalCalls) : 0
+  
   return {
     totalCalls,
     avgCallDuration,
-    totalBalance: `₹${(INITIAL_BALANCE - totalCost).toFixed(2)}`,
-    avgCallCost: `₹${(totalCalls > 0 ? (totalCost / totalCalls) : 0).toFixed(2)}`,
+    totalBalance: formatINR(currentBalance),
+    avgCallCost: formatINR(avgCallCostValue),
     successRate: totalCalls > 0 ? `${Math.round((successfulCalls / totalCalls) * 100)}%` : '0%',
-    totalReservations: data.filter(call => call.transcript?.toLowerCase().includes('reservation')).length,
+    totalReservations: data.filter(call => 
+      call.transcript?.toLowerCase().includes('reservation')
+    ).length,
     lastRefreshed: new Date().toLocaleTimeString()
   }
 }
