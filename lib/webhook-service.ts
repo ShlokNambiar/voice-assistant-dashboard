@@ -145,19 +145,40 @@ interface DBCallRow {
 // Get all calls from the database
 export async function getAllCalls(): Promise<CallData[]> {
   try {
-    const { rows } = await sql<DBCallRow>`
+    console.log('🔍 Fetching all calls from database...');
+    const result = await sql`
       SELECT * FROM calls 
       ORDER BY call_start DESC
     `;
     
-    return rows.map((row: DBCallRow) => ({
-      ...row,
-      call_start: new Date(row.call_start),
-      call_end: new Date(row.call_end)
-    })) as CallData[];
+    console.log(`✅ Successfully retrieved ${result.rows.length} calls`);
+    
+    return result.rows.map((row: any) => {
+      // Ensure all required fields are present and properly formatted
+      const callData: CallData = {
+        id: row.id,
+        caller_name: row.caller_name || 'Unknown Caller',
+        phone: row.phone || '',
+        call_start: new Date(row.call_start),
+        call_end: new Date(row.call_end),
+        duration: row.duration || 0,
+        transcript: row.transcript || '',
+        success_flag: row.success_flag || false,
+        cost: Number(row.cost) || 0
+      };
+      
+      console.log(`📝 Processed call ${callData.id}:`, {
+        caller: callData.caller_name,
+        start: callData.call_start,
+        duration: callData.duration,
+        success: callData.success_flag
+      });
+      
+      return callData;
+    });
   } catch (error) {
-    console.error('Error fetching calls:', error);
-    return [];
+    console.error('❌ Error fetching calls:', error);
+    throw error; // Re-throw to be handled by the route
   }
 }
 

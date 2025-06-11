@@ -3,10 +3,15 @@ import { CallData, saveCallData, getAllCalls } from '@/lib/webhook-service';
 import { initDB } from '@/lib/db';
 
 // Initialize database on server start
-initDB().catch(error => {
-  console.error('❌ Failed to initialize database:', error);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'production') {
+  initDB().catch(error => {
+    console.error('❌ Failed to initialize database:', error);
+    // Don't exit in production to allow for auto-recovery
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  });
+}
 
 // Helper function to generate unique request ID
 function generateRequestId() {
@@ -308,27 +313,44 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 [${requestId}] Fetching all call records...`);
     const startTime = Date.now();
     
-    const calls = await getAllCalls();
-    
-    console.log(`✅ [${requestId}] Successfully retrieved ${calls.length} call records in ${Date.now() - startTime}ms`);
-    
-    return NextResponse.json({
-      requestId,
-      success: true,
-      count: calls.length,
-      data: calls,
-      timestamp: new Date().toISOString()
-    });
+    try {
+      const calls = await getAllCalls();
+      console.log(`✅ [${requestId}] Successfully retrieved ${calls.length} call records in ${Date.now() - startTime}ms`);
+      
+      return NextResponse.json({
+        requestId,
+        success: true,
+        count: calls.length,
+        data: calls,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (dbError) {
+      console.error(`❌ [${requestId}] Database error:`, dbError);
+      // Return empty array if there's a database error
+      return NextResponse.json({
+        requestId,
+        success: false,
+        count: 0,
+        data: [],
+        error: 'Failed to fetch calls',
+        timestamp: new Date().toISOString()
+      }, { status: 200 });
+    }
     
   } catch (error) {
-    console.error(`❌ [${requestId}] Error fetching calls:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`❌ [${requestId}] Error in GET handler:`, error);
     
-    return createErrorResponse(
-      'Failed to fetch calls', 
-      500, 
+    // Return empty data array instead of error to prevent dashboard from breaking
+    return NextResponse.json({
       requestId,
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+      success: false,
+      count: 0,
+      data: [],
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    }, { status: 200 }); // Still return 200 to prevent frontend errors
   }
 }
 
