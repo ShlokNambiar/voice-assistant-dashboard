@@ -3,15 +3,18 @@ import { CallData, saveCallData, getAllCalls } from '@/lib/webhook-service';
 import { initDB } from '@/lib/db';
 
 // Initialize database on server start
-if (process.env.NODE_ENV !== 'production') {
-  initDB().catch(error => {
-    console.error('❌ Failed to initialize database:', error);
-    // Don't exit in production to allow for auto-recovery
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
-  });
-}
+initDB().catch(error => {
+  console.error('❌ Failed to initialize database:', error);
+  // In production, we don't want to crash the server if DB init fails
+  // as it might be a temporary issue, but we should log it
+  if (process.env.NODE_ENV !== 'production') {
+    // In development, crash to make the issue more visible
+    console.error('🚨 Fatal: Database initialization failed in development');
+    process.exit(1);
+  } else {
+    console.error('⚠️  Database initialization failed, but continuing in production');
+  }
+});
 
 // Helper function to generate unique request ID
 function generateRequestId() {
