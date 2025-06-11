@@ -1,11 +1,11 @@
-// Webhook service for fetching call data from Make.com
+import { sql } from '@vercel/postgres';
 
 export interface CallData {
   id: string
   caller_name: string
   phone: string
-  call_start: Date
-  call_end: Date
+  call_start: Date | string
+  call_end: Date | string
   duration: string
   transcript: string
   success_flag: boolean | null // true = success, false = failed, null = incomplete
@@ -22,94 +22,89 @@ export interface DashboardMetrics {
   lastRefreshed: string
 }
 
-// The webhook will POST data to /api/webhook, and we'll fetch it from there
-const getDataUrl = () => {
-  if (typeof window !== 'undefined') {
-    // Client-side: use relative URL
-    return "/api/webhook"
-  } else {
-    // Server-side: use absolute URL for production or localhost for dev
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NODE_ENV === 'development'
-        ? `http://localhost:${process.env.PORT || 3001}`
-        : 'http://localhost:3000'
-    return `${baseUrl}/api/webhook`
+const INITIAL_BALANCE = 5000; // ₹5000 starting balance
+
+// Save call data to the database
+export async function saveCallData(call: CallData) {
+  try {
+    await sql`
+      INSERT INTO calls (
+        id, caller_name, phone, call_start, call_end, 
+        duration, transcript, success_flag, cost
+      ) VALUES (
+        ${call.id},
+        ${call.caller_name},
+        ${call.phone},
+        ${new Date(call.call_start).toISOString()},
+        ${new Date(call.call_end).toISOString()},
+        ${call.duration},
+        ${call.transcript},
+        ${call.success_flag},
+        ${call.cost}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        call_end = EXCLUDED.call_end,
+        duration = EXCLUDED.duration,
+        transcript = EXCLUDED.transcript,
+        success_flag = EXCLUDED.success_flag,
+        cost = EXCLUDED.cost
+    `;
+  } catch (error) {
+    console.error('Error saving call data:', error);
+    throw error;
   }
 }
-const INITIAL_BALANCE = 5000 // ₹5000 starting balance
 
-// Cache for storing fetched data
-let cachedData: CallData[] = []
-let lastFetchTime = 0
-const CACHE_DURATION = 5000 // 5 seconds cache (shorter since it's local)
+// Define the database row type
+interface DBCallRow {
+  id: string;
+  caller_name: string | null;
+  phone: string | null;
+  call_start: string | Date;
+  call_end: string | Date;
+  duration: string;
+  transcript: string | null;
+  success_flag: boolean | null;
+  cost: number;
+  created_at: string | Date;
+}
 
+// Get all calls from the database
+export async function getAllCalls(): Promise<CallData[]> {
+  try {
+    const { rows } = await sql<DBCallRow>`
+      SELECT * FROM calls 
+      ORDER BY call_start DESC
+    `;
+    
+    return rows.map((row: DBCallRow) => ({
+      ...row,
+      call_start: new Date(row.call_start),
+      call_end: new Date(row.call_end)
+    })) as CallData[];
+  } catch (error) {
+    console.error('Error fetching calls:', error);
+    return [];
+  }
+}
+
+// For backward compatibility
 export async function fetchWebhookData(): Promise<CallData[]> {
-  const now = Date.now()
-
-  // Return cached data if it's still fresh
-  if (cachedData.length > 0 && (now - lastFetchTime) < CACHE_DURATION) {
-    return cachedData
-  }
-
-  const response = await fetch(getDataUrl(), {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch call data: ${response.status}`)
-  }
-
-  const data = await response.json()
-
-  // Transform the webhook data to match our CallData interface
-  // Based on Make.com webhook structure:
-  // - caller_name (A): 1. message.analysis.structuredData.* name
-  // - phone (B): direct field
-  // - call_start (C): 1. message.startedAt
-  // - call_end (D): 1. message.endedAt
-  // - transcript (E): 1. message.summary
-  // - cost (F): 1. message.cost
-  // - success_flag (G): 1. message.analysis.successEvaluation
-
-  const transformedData: CallData[] = Array.isArray(data) ? data.map((item: any, index: number) => {
-    // The webhook endpoint now normalizes data, so we can use it directly
-    // But still handle legacy formats for backward compatibility
-
-    return {
-      id: item.id || `call_${index + 1}`,
-      caller_name: item.caller_name || 'Unknown Caller',
-      phone: item.phone || 'N/A',
-      call_start: new Date(item.call_start || Date.now()),
-      call_end: new Date(item.call_end || Date.now()),
-      duration: item.duration || '0m 0s',
-      transcript: item.transcript || '',
-      success_flag: item.success_flag !== undefined ? item.success_flag : null,
-      cost: parseFloat(item.cost?.toString() || '0')
-    }
-  }) : []
-
-  cachedData = transformedData
-  lastFetchTime = now
-
-  return transformedData
+  return getAllCalls();
 }
 
-function calculateDuration(startTime: string | Date, endTime: string | Date): string {
-  if (!startTime || !endTime) return '0m 0s'
-
+// Calculate duration between two dates in "Xm Ys" format
+export function calculateDuration(startTime: string | Date, endTime: string | Date): string {
   try {
     const start = new Date(startTime)
     const end = new Date(endTime)
-
-    // Check if dates are valid
+    
+    // Handle invalid dates
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.error('Invalid date in calculateDuration:', { startTime, endTime })
       return '0m 0s'
     }
-
+    
     const diffMs = end.getTime() - start.getTime()
     const diffSeconds = Math.floor(Math.abs(diffMs) / 1000) // Use absolute value
 

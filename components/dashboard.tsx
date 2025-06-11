@@ -39,26 +39,31 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [isEditingBalance, setIsEditingBalance] = useState(false)
 
-  // Fetch data from webhook
+  // Fetch data from database
   const refreshData = async () => {
     setIsRefreshing(true)
     setError(null)
 
     try {
-      const data = await fetchWebhookData()
+      const response = await fetch('/api/webhook')
+      if (!response.ok) throw new Error('Failed to fetch data')
+      
+      const data = await response.json()
       const calculatedMetrics = await calculateMetrics(data)
 
       setCallData(data)
-      setMetrics(calculatedMetrics)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data from webhook'
-      setError(errorMessage)
-      console.error('Error refreshing data:', err)
+      setMetrics(prev => ({
 
-      // Don't clear existing data on error, just show error message
-      // Keep the last successful data if available
+        ...calculatedMetrics,
+        // Keep the existing totalBalance to prevent it from being reset
+        totalBalance: prev.totalBalance || calculatedMetrics.totalBalance
+      }))
+    } catch (err) {
+      setError('Failed to fetch data. Please try again.')
+      console.error('Error fetching data:', err)
     } finally {
       setIsRefreshing(false)
+      setIsInitialLoading(false)
     }
   }
 

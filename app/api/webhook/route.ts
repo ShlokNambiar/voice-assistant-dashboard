@@ -1,70 +1,70 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server';
+import { CallData, saveCallData, getAllCalls } from '@/lib/webhook-service';
+import { initDB } from '@/lib/db';
 
-// In-memory storage for call data (in production, use a database)
-let callDataStore: any[] = []
+// Initialize database on server start
+initDB().catch(console.error);
 
+// POST /api/webhook - Receive webhook data from Make.com
 export async function POST(request: NextRequest) {
   try {
-    let body
-    try {
-      body = await request.json()
-    } catch (parseError) {
-      // Try to fix severely malformed JSON
-      const rawText = await request.text()
-      console.log('Raw malformed JSON:', rawText)
+    const data = await request.json();
+    
+    // If data is an array, use it directly, otherwise wrap in array
+    const newData = Array.isArray(data) ? data : [data];
+    let savedCount = 0;
 
-      // Fix unescaped quotes in transcript field specifically
-      let fixedText = rawText
-        .replace(/"transcript":\s*"([^"]*)"([^"]*)"([^"]*)"/g, (match, before, middle, after) => {
-          return `"transcript": "${before}\\"${middle}\\"${after}"`
-        })
-        .replace(/"caller_name":\s*"([^"]*)"([^"]*)"([^"]*)"/g, (match, before, middle, after) => {
-          return `"caller_name": "${before}\\"${middle}\\"${after}"`
-        })
+    // Process each call in the webhook data
+    for (const item of newData) {
+      try {
+        // Transform and validate the data
+        const callData: CallData = {
+          id: item.id || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          caller_name: item.caller_name || 'Unknown Caller',
+          phone: item.phone || 'N/A',
+          call_start: item.call_start || new Date().toISOString(),
+          call_end: item.call_end || new Date().toISOString(),
+          duration: item.duration || '0m 0s',
+          transcript: item.transcript || item.summary || '',
+          success_flag: item.success_flag !== undefined ? Boolean(item.success_flag) : null,
+          cost: parseFloat(item.cost?.toString() || '0')
+        };
 
-      console.log('Fixed JSON:', fixedText)
-      body = JSON.parse(fixedText)
+        // Save to database
+        await saveCallData(callData);
+        savedCount++;
+      } catch (error) {
+        console.error('Error processing call data:', error, item);
+        // Continue processing other items even if one fails
+      }
     }
-
-    console.log('Received webhook data:', JSON.stringify(body, null, 2))
-
-    // Add timestamp to the received data
-    const callData = {
-      ...body,
-      received_at: new Date().toISOString(),
-      id: body.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    }
-
-    // Store the call data
-    callDataStore.push(callData)
-
-    // Keep only the last 100 calls to prevent memory issues
-    if (callDataStore.length > 100) {
-      callDataStore = callDataStore.slice(-100)
-    }
-
-    console.log(`Stored call data. Total calls: ${callDataStore.length}`)
-
-    return NextResponse.json({
-      success: true,
-      message: 'Call data received and stored',
-      totalCalls: callDataStore.length
-    })
-
+    
+    return NextResponse.json({ 
+      success: true, 
+      saved: savedCount,
+      total: newData.length
+    });
   } catch (error) {
-    console.error('Error processing webhook:', error)
+    console.error('Error processing webhook:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process webhook data' },
+      { error: 'Failed to process webhook', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
-    )
+    );
   }
 }
 
-
-
+// GET /api/webhook - Get all webhook data
 export async function GET() {
-  // Return stored call data for the dashboard
-  return NextResponse.json(callDataStore)
+  try {
+    const calls = await getAllCalls();
+    return NextResponse.json(calls);
+  } catch (error) {
+    console.error('Error fetching call data:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch call data', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
 }
 
 // Handle preflight requests
