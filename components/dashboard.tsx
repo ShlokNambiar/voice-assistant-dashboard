@@ -97,11 +97,7 @@ export default function Dashboard() {
       console.log('Calculated metrics:', calculatedMetrics) // Debug log
 
       setCallData(processedCalls)
-      setMetrics(prev => ({
-        ...calculatedMetrics,
-        // Keep the existing totalBalance to prevent it from being reset
-        totalBalance: prev.totalBalance || calculatedMetrics.totalBalance
-      }))
+      setMetrics(calculatedMetrics)
     } catch (err) {
       setError('Failed to fetch data. Please try again.')
       console.error('Error fetching data:', err)
