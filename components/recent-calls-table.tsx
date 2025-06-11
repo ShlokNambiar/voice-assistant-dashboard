@@ -33,6 +33,7 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
     cost: call.cost || 0, // Ensure cost is always a number
     timestamp: new Date(call.call_start),
     transcript: call.transcript,
+    summary: call.summary || 'No summary available',
     success: call.success_flag,
   }))
 
@@ -116,6 +117,12 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                         </div>
                         <div className="sm:col-span-2">
                           <strong>Phone:</strong> {call.phone || 'N/A'}
+                        </div>
+                        <div className="sm:col-span-2 mt-4">
+                          <strong>Summary:</strong>
+                          <div className="mt-1 p-3 bg-gray-50 rounded-md text-sm">
+                            {call.summary || 'No summary available'}
+                          </div>
                         </div>
                       </div>
                     </div>

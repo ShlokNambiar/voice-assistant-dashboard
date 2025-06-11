@@ -8,6 +8,7 @@ export interface CallData {
   call_end: Date | string
   duration: string | number // Can be either string (e.g., "2m 30s") or number (seconds)
   transcript: string
+  summary?: string // Optional summary of the call
   success_flag: boolean | null // true = success, false = failed, null = incomplete
   cost: number // Cost in rupees
 }
@@ -61,6 +62,7 @@ export async function saveCallData(call: CallData) {
         call_end: new Date(call.call_end).toISOString(),
         duration: call.duration,
         transcript: call.transcript || '', // Ensure transcript is never null
+        summary: call.summary || '', // Include summary field
         success_flag: call.success_flag,
         cost: call.cost
       };
@@ -70,7 +72,7 @@ export async function saveCallData(call: CallData) {
       const result = await sql`
         INSERT INTO calls (
           id, caller_name, phone, call_start, call_end, 
-          duration, transcript, success_flag, cost
+          duration, transcript, summary, success_flag, cost
         ) VALUES (
           ${insertData.id},
           ${insertData.caller_name},
@@ -79,6 +81,7 @@ export async function saveCallData(call: CallData) {
           ${insertData.call_end},
           ${insertData.duration},
           ${insertData.transcript},
+          ${insertData.summary},
           ${insertData.success_flag},
           ${insertData.cost}
         )
@@ -163,6 +166,7 @@ export async function getAllCalls(): Promise<CallData[]> {
         call_end: new Date(row.call_end),
         duration: row.duration || 0,
         transcript: row.transcript || '',
+        summary: row.summary || '',
         success_flag: row.success_flag || false,
         cost: Number(row.cost) || 0
       };
@@ -268,7 +272,8 @@ export async function calculateMetrics(data: CallData[]): Promise<DashboardMetri
   const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
   
   // Calculate remaining balance (starting balance - total cost)
-  const remainingBalance = Math.max(0, INITIAL_BALANCE - totalCost);
+  // Ensure we don't go below 0 and handle any floating point precision
+  const remainingBalance = Math.max(0, Math.round((INITIAL_BALANCE - totalCost) * 100) / 100);
   
   // Calculate average call cost
   const avgCallCost = totalCalls > 0 ? totalCost / totalCalls : 0;
