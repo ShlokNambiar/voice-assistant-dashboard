@@ -30,11 +30,37 @@ export async function POST(request: NextRequest) {
           cost: parseFloat(item.cost?.toString() || '0')
         };
 
-        // Save to database
-        await saveCallData(callData);
-        savedCount++;
+        // Validate required fields
+        const requiredFields: (keyof CallData)[] = ['id', 'caller_name', 'phone', 'call_start', 'call_end', 'duration', 'transcript', 'success_flag', 'cost'];
+        const missingFields = requiredFields.filter(field => callData[field] === undefined);
+        
+        if (missingFields.length > 0) {
+          console.error('❌ Missing required fields:', missingFields);
+          return NextResponse.json(
+            { success: false, error: `Missing required fields: ${missingFields.join(', ')}` }, 
+            { status: 400 }
+          );
+        }
+
+        try {
+          // Save to database
+          console.log('💾 Attempting to save call data...');
+          const saved = await saveCallData(callData);
+          console.log('✅ Save result:', saved);
+          savedCount++;
+        } catch (dbError) {
+          console.error('❌ Database error:', dbError);
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'Failed to save to database',
+              details: dbError instanceof Error ? dbError.message : String(dbError)
+            }, 
+            { status: 500 }
+          );
+        }
       } catch (error) {
-        console.error('Error processing call data:', error, item);
+        console.error('❌ Error processing call data:', error, item);
         // Continue processing other items even if one fails
       }
     }
@@ -42,12 +68,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       saved: savedCount,
-      total: newData.length
+      total: newData.length,
+      message: 'Call data saved successfully'
     });
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('❌ Error processing webhook:', error);
     return NextResponse.json(
-      { error: 'Failed to process webhook', details: error instanceof Error ? error.message : String(error) },
+      { 
+        success: false, 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      }, 
       { status: 500 }
     );
   }
@@ -56,12 +87,17 @@ export async function POST(request: NextRequest) {
 // GET /api/webhook - Get all webhook data
 export async function GET() {
   try {
+    console.log('📡 Fetching all calls from database...');
     const calls = await getAllCalls();
+    console.log(`✅ Found ${calls.length} calls in database`);
     return NextResponse.json(calls);
   } catch (error) {
-    console.error('Error fetching call data:', error);
+    console.error('❌ Error fetching call data:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch call data', details: error instanceof Error ? error.message : String(error) },
+      { 
+        error: 'Failed to fetch call data',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

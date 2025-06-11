@@ -27,7 +27,13 @@ const INITIAL_BALANCE = 5000; // ₹5000 starting balance
 // Save call data to the database
 export async function saveCallData(call: CallData) {
   try {
-    await sql`
+    console.log('💽 Saving call to database:', {
+      ...call,
+      call_start: new Date(call.call_start).toISOString(),
+      call_end: new Date(call.call_end).toISOString()
+    });
+
+    const result = await sql`
       INSERT INTO calls (
         id, caller_name, phone, call_start, call_end, 
         duration, transcript, success_flag, cost
@@ -38,7 +44,7 @@ export async function saveCallData(call: CallData) {
         ${new Date(call.call_start).toISOString()},
         ${new Date(call.call_end).toISOString()},
         ${call.duration},
-        ${call.transcript},
+        ${call.transcript || null},
         ${call.success_flag},
         ${call.cost}
       )
@@ -48,9 +54,13 @@ export async function saveCallData(call: CallData) {
         transcript = EXCLUDED.transcript,
         success_flag = EXCLUDED.success_flag,
         cost = EXCLUDED.cost
+      RETURNING id
     `;
+
+    console.log('💾 Database save result:', result);
+    return result;
   } catch (error) {
-    console.error('Error saving call data:', error);
+    console.error('❌ Error in saveCallData:', error);
     throw error;
   }
 }
