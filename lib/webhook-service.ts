@@ -33,32 +33,36 @@ export async function saveCallData(call: CallData) {
       call_end: new Date(call.call_end).toISOString()
     });
 
-    const result = await sql`
-      INSERT INTO calls (
-        id, caller_name, phone, call_start, call_end, 
-        duration, transcript, success_flag, cost
-      ) VALUES (
-        ${call.id},
-        ${call.caller_name},
-        ${call.phone},
-        ${new Date(call.call_start).toISOString()},
-        ${new Date(call.call_end).toISOString()},
-        ${call.duration},
-        ${call.transcript || null},
-        ${call.success_flag},
-        ${call.cost}
-      )
-      ON CONFLICT (id) DO UPDATE SET
-        call_end = EXCLUDED.call_end,
-        duration = EXCLUDED.duration,
-        transcript = EXCLUDED.transcript,
-        success_flag = EXCLUDED.success_flag,
-        cost = EXCLUDED.cost
-      RETURNING id
+    // First check if a record with this ID already exists
+    const existingRecord = await sql`
+      SELECT id FROM calls WHERE id = ${call.id} LIMIT 1;
     `;
 
-    console.log('💾 Database save result:', result);
-    return result;
+    // Only insert if the record doesn't exist
+    if (!existingRecord.rows.length) {
+      const result = await sql`
+        INSERT INTO calls (
+          id, caller_name, phone, call_start, call_end, 
+          duration, transcript, success_flag, cost
+        ) VALUES (
+          ${call.id},
+          ${call.caller_name},
+          ${call.phone},
+          ${new Date(call.call_start).toISOString()},
+          ${new Date(call.call_end).toISOString()},
+          ${call.duration},
+          ${call.transcript || null},
+          ${call.success_flag},
+          ${call.cost}
+        )
+        RETURNING id
+      `;
+      console.log('✅ New call record created:', result.rows[0]?.id);
+      return result;
+    } else {
+      console.log('ℹ️ Call record already exists, skipping insert:', call.id);
+      return { rows: [{ id: call.id }] };
+    }
   } catch (error) {
     console.error('❌ Error in saveCallData:', error);
     throw error;
