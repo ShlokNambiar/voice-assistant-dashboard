@@ -8,11 +8,24 @@ initDB().catch(console.error);
 // POST /api/webhook - Receive webhook data from Make.com
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
-    console.log('📥 Webhook received with data:', JSON.stringify(data, null, 2));
+    const requestBody = await request.text();
+    console.log('📥 Raw webhook received:', requestBody);
+    
+    let data;
+    try {
+      data = JSON.parse(requestBody);
+      console.log('📝 Parsed JSON data:', JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
 
     // Process the data array or single object
     const newData = Array.isArray(data) ? data : [data];
+    console.log(`🔄 Processing ${newData.length} call(s)`);
     let savedCount = 0;
 
     for (const item of newData) {
@@ -61,10 +74,8 @@ export async function POST(request: NextRequest) {
           success_flag: item.success_flag !== undefined ? Boolean(item.success_flag) : (item.Success !== undefined ? Boolean(item.Success) : false),
           cost: cost // Include the parsed cost
         };
-
-        console.log('📝 Processed call data:', callData);
-
-        // Save to database
+        
+        console.log('🔄 Processed call data:', JSON.stringify(callData, null, 2));
         console.log('💾 Attempting to save call data...');
         const saved = await saveCallData(callData);
         console.log('✅ Save result:', saved);
