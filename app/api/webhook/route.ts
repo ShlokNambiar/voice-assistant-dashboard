@@ -191,7 +191,11 @@ export async function POST(request: NextRequest) {
         // Transform the data to match our CallData interface with validation
         const callerName = item.caller_name || item['Caller Name'] || 'Unknown Caller';
         const phone = item.phone || '';
-        const transcript = item.transcript || item.Summary || '';
+        
+        // Map fields correctly - summary comes from Summary/summary field
+        const summary = item.summary || item.Summary || '';
+        // Transcript should come from transcript field, or be empty if not provided
+        const transcript = item.transcript || '';
         
         const callData: CallData = {
           id: callId,
@@ -201,11 +205,14 @@ export async function POST(request: NextRequest) {
           call_end: callEnd.toISOString(),
           duration: duration,
           transcript: transcript.toString().substring(0, 10000),
+          summary: summary.toString().substring(0, 10000),
           success_flag: item.success_flag !== undefined 
             ? Boolean(item.success_flag) 
             : (item.Success !== undefined ? Boolean(item.Success) : false),
           cost: cost
         };
+        
+        console.log(`📝 [${requestId}] Summary for call ${callId}:`, summary);
         
         console.log(`📋 [${requestId}] Transformed call data for ${callId}:`, {
           ...callData,

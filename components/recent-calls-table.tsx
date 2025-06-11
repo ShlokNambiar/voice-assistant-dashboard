@@ -24,18 +24,22 @@ interface RecentCallsTableProps {
 }
 
 export function RecentCallsTable({ callData }: RecentCallsTableProps) {
-  // Only use real webhook data, no fallback
-  const recentCalls = callData.slice(0, 10).map(call => ({
-    id: call.id,
-    caller_name: call.caller_name,
-    phone: call.phone,
-    duration: call.duration,
-    cost: call.cost || 0, // Ensure cost is always a number
-    timestamp: new Date(call.call_start),
-    transcript: call.transcript,
-    summary: call.summary || 'No summary available',
-    success: call.success_flag,
-  }))
+  // Process call data with proper fallbacks
+  const recentCalls = callData.slice(0, 10).map(call => {
+    // Use summary if available, otherwise fall back to transcript if it exists
+    const summary = call.summary || call.transcript || 'No summary available';
+    
+    return {
+      id: call.id,
+      caller_name: call.caller_name,
+      phone: call.phone,
+      duration: call.duration,
+      cost: call.cost || 0, // Ensure cost is always a number
+      timestamp: new Date(call.call_start),
+      summary: summary,
+      success: call.success_flag,
+    };
+  })
 
   if (recentCalls.length === 0) {
     return (
@@ -120,8 +124,8 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                         </div>
                         <div className="sm:col-span-2 mt-4">
                           <strong>Summary:</strong>
-                          <div className="mt-1 p-3 bg-gray-50 rounded-md text-sm">
-                            {call.summary || 'No summary available'}
+                          <div className="mt-1 p-3 bg-gray-50 rounded-md text-sm whitespace-pre-wrap">
+                            {call.summary}
                           </div>
                         </div>
                       </div>
