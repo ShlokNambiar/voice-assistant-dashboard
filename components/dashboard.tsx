@@ -3,24 +3,24 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RecentCallsTable } from "@/components/recent-calls-table"
-import { CallsPerDayChart } from "@/components/calls-per-day-chart"
-import { CallDurationChart } from "@/components/call-duration-chart"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Clock,
-  Phone,
-  BarChart3,
-  Calendar,
-  CheckCircle,
-  RefreshCw,
+import { 
+  Clock, 
+  Phone, 
+  BarChart3, 
+  Calendar, 
+  CheckCircle, 
+  RefreshCw, 
   IndianRupee,
-  Headphones,
-  LineChart,
+  LineChart, 
   PieChart,
   AlertCircle,
+  Headphones
 } from "lucide-react"
+import { RecentCallsTable } from "./recent-calls-table"
+import { CallsPerDayChart } from "./calls-per-day-chart"
+import { CallDurationChart } from "./call-duration-chart"
+import { ErrorBoundary } from "./error-boundary"
 import { fetchWebhookData, calculateMetrics, type CallData, type DashboardMetrics } from "@/lib/webhook-service"
 
 export default function Dashboard() {
@@ -163,8 +163,15 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            <>
-          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <ErrorBoundary fallback={
+              <div className="p-4 bg-red-50 border border-red-200 rounded-md m-4">
+                <h3 className="text-red-800 font-medium">Error loading dashboard</h3>
+                <p className="text-red-700 text-sm mt-1">
+                  Please refresh the page or try again later.
+                </p>
+              </div>
+            }>
+              <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="gradient-card purple overflow-hidden shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Total Calls Made</CardTitle>
@@ -288,8 +295,14 @@ export default function Dashboard() {
               </div>
             </TabsContent>
           </Tabs>
-            </>
+            </div>
+          </ErrorBoundary>
           )}
+        </main>
+      </div>
+    </div>
+  )
+}
         </main>
       </div>
     </div>
