@@ -46,14 +46,32 @@ export default function Dashboard() {
 
     try {
       const response = await fetch('/api/webhook')
-      if (!response.ok) throw new Error('Failed to fetch data')
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API Error:', errorText)
+        throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`)
+      }
       
       const data = await response.json()
-      const calculatedMetrics = await calculateMetrics(data)
+      console.log('API Response:', data) // Debug log
+      
+      // If data is an array, use it directly, otherwise use data.data if it exists
+      const callsData = Array.isArray(data) ? data : data.data || []
+      
+      // If we got an empty array, check if there's a different structure
+      if (callsData.length === 0 && data && typeof data === 'object') {
+        // Try to extract calls data from the response object
+        const possibleData = Object.values(data).find(Array.isArray)
+        if (possibleData) {
+          callsData.push(...possibleData)
+        }
+      }
+      
+      console.log('Processed calls data:', callsData) // Debug log
+      const calculatedMetrics = await calculateMetrics(callsData)
 
-      setCallData(data)
+      setCallData(callsData)
       setMetrics(prev => ({
-
         ...calculatedMetrics,
         // Keep the existing totalBalance to prevent it from being reset
         totalBalance: prev.totalBalance || calculatedMetrics.totalBalance
