@@ -17,12 +17,49 @@ async function addSummaryColumnIfNotExists() {
         ADD COLUMN IF NOT EXISTS summary TEXT DEFAULT '';
       `;
       console.log('✅ Added summary column to calls table');
+      
+      // After adding the column, migrate any existing transcript data to summary
+      try {
+        console.log('🔄 Migrating existing transcript data to summary column...');
+        const result = await sql`
+          UPDATE calls 
+          SET summary = transcript 
+          WHERE (summary IS NULL OR summary = '') 
+          AND (transcript IS NOT NULL AND transcript != '');
+        `;
+        console.log(`✅ Migrated ${result.rowCount} records from transcript to summary`);
+      } catch (migrateError) {
+        console.error('⚠️ Error migrating transcript data to summary:', migrateError);
+        // Don't fail the entire operation if migration fails
+      }
     } else {
       console.log('ℹ️ Summary column already exists in calls table');
+      
+      // Check if we have any records where summary is empty but transcript has data
+      const needsMigration = await sql`
+        SELECT COUNT(*) as count 
+        FROM calls 
+        WHERE (summary IS NULL OR summary = '') 
+        AND (transcript IS NOT NULL AND transcript != '');
+      `;
+      
+      const count = parseInt(needsMigration.rows[0]?.count || '0');
+      if (count > 0) {
+        console.log(`🔄 Found ${count} records with transcript data but no summary. Migrating now...`);
+        const result = await sql`
+          UPDATE calls 
+          SET summary = transcript 
+          WHERE (summary IS NULL OR summary = '') 
+          AND (transcript IS NOT NULL AND transcript != '');
+        `;
+        console.log(`✅ Migrated ${result.rowCount} records from transcript to summary`);
+      } else {
+        console.log('✅ No data migration needed');
+      }
     }
   } catch (error) {
-    console.error('❌ Error adding summary column:', error);
-    throw error;
+    console.error('❌ Error in addSummaryColumnIfNotExists:', error);
+    // Don't throw here to allow the app to continue running
   }
 }
 
