@@ -30,6 +30,7 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
     caller_name: call.caller_name,
     phone: call.phone,
     duration: call.duration,
+    cost: call.cost || 0, // Ensure cost is always a number
     timestamp: new Date(call.call_start),
     transcript: call.transcript,
     success: call.success_flag,
@@ -95,14 +96,29 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                     <div className="mt-4 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <strong>Caller:</strong> {call.caller_name}
+                          <strong>Caller:</strong> {call.caller_name || 'Unknown'}
                         </div>
                         <div>
                           <strong>Duration:</strong> {formatDuration(call.duration)}
                         </div>
-                      </div>
-                      <div>
-                        <strong>Time:</strong> {formatDistanceToNow(call.timestamp, { addSuffix: true })}
+                        <div>
+                          <strong>Cost:</strong> ₹{call.cost.toFixed(4)}
+                        </div>
+                        <div>
+                          <strong>Time:</strong> {call.timestamp.toLocaleString()}
+                        </div>
+                        <div>
+                          <strong>Status:</strong> {call.success ? '✅ Success' : '❌ Failed'}
+                        </div>
+                        <div className="sm:col-span-2">
+                          <strong>Phone:</strong> {call.phone || 'N/A'}
+                        </div>
+                        <div className="sm:col-span-2">
+                          <strong>Transcript:</strong>
+                          <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                            {call.transcript || 'No transcript available'}
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <strong>Full Summary:</strong>

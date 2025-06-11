@@ -38,6 +38,17 @@ export async function POST(request: NextRequest) {
           duration = Math.floor((callEnd.getTime() - callStart.getTime()) / 1000);
         }
 
+        // Parse cost from various possible field names and ensure it's a number
+        const cost = typeof item.cost === 'number' 
+          ? item.cost 
+          : typeof item.Cost === 'number' 
+            ? item.Cost 
+            : typeof item.cost === 'string' 
+              ? parseFloat(item.cost) || 0 
+              : typeof item.Cost === 'string' 
+                ? parseFloat(item.Cost) || 0 
+                : 0;
+
         // Transform the data to match our CallData interface
         const callData: CallData = {
           id: item.id || item.ID?.toString() || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -48,7 +59,7 @@ export async function POST(request: NextRequest) {
           duration: duration,
           transcript: item.transcript || item.Summary?.toString() || '',
           success_flag: item.success_flag !== undefined ? Boolean(item.success_flag) : (item.Success !== undefined ? Boolean(item.Success) : false),
-          cost: typeof item.cost === 'number' ? item.cost : parseFloat(item.cost || item.Cost || '0')
+          cost: cost // Include the parsed cost
         };
 
         console.log('📝 Processed call data:', callData);
