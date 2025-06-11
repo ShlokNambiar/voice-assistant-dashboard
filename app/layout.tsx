@@ -1,3 +1,4 @@
+// Voice Assistant Dashboard - Version 1.0.0
 import type { Metadata } from 'next'
 import './globals.css'
 
