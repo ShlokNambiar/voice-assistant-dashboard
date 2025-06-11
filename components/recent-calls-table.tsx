@@ -45,7 +45,7 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
               <TableHead className="min-w-[100px]">Caller</TableHead>
               <TableHead className="min-w-[80px] hidden sm:table-cell">Duration</TableHead>
               <TableHead className="min-w-[100px]">Time</TableHead>
-              <TableHead className="min-w-[150px]">Summary</TableHead>
+              <TableHead className="min-w-[150px] hidden sm:table-cell">Summary</TableHead>
               <TableHead className="min-w-[80px]">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -82,11 +82,11 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
               <TableCell className="font-medium">{call.caller_name}</TableCell>
               <TableCell className="hidden sm:table-cell">{formatDuration(call.duration)}</TableCell>
               <TableCell className="text-sm">{formatDistanceToNow(call.timestamp, { addSuffix: true })}</TableCell>
-              <TableCell className="max-w-[200px] sm:max-w-[300px]">
+              <TableCell className="hidden sm:table-cell">
                 <Dialog>
                   <DialogTrigger asChild>
                     <div className="truncate cursor-pointer text-blue-600 hover:text-blue-800 hover:underline">
-                      {call.transcript}
+                      View Details
                     </div>
                   </DialogTrigger>
                   <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[80vh] overflow-y-auto mx-4">
@@ -102,13 +102,17 @@ export function RecentCallsTable({ callData }: RecentCallsTableProps) {
                           <strong>Duration:</strong> {formatDuration(call.duration)}
                         </div>
                         <div>
-                          <strong>Cost:</strong> ₹{call.cost.toFixed(4)}
-                        </div>
-                        <div>
                           <strong>Time:</strong> {call.timestamp.toLocaleString()}
                         </div>
                         <div>
-                          <strong>Status:</strong> {call.success ? '✅ Success' : '❌ Failed'}
+                          <strong>Cost:</strong> ₹{typeof call.cost === 'number' ? call.cost.toFixed(2) : call.cost}
+                        </div>
+                        <div className="sm:col-span-2">
+                          <strong>Status:</strong> {call.success ? (
+                            <span className="text-green-600">Success</span>
+                          ) : (
+                            <span className="text-amber-600">Failed</span>
+                          )}
                         </div>
                         <div className="sm:col-span-2">
                           <strong>Phone:</strong> {call.phone || 'N/A'}

@@ -83,68 +83,128 @@ export async function POST(request: NextRequest) {
     let savedCount = 0;
     const saveErrors: Array<{id?: string, error: string, details?: string}> = [];
     const processedCalls: any[] = [];
+    
+    // Get existing calls to check for duplicates
+    let existingCalls: CallData[] = [];
+    try {
+      existingCalls = await getAllCalls();
+      console.log(`🔍 [${requestId}] Retrieved ${existingCalls.length} existing calls for duplicate check`);
+    } catch (error) {
+      console.error(`❌ [${requestId}] Error fetching existing calls:`, error);
+    }
 
     for (const item of newData) {
-      const callId = item.id || item.ID?.toString() || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      console.log(`📥 [${requestId}] Processing call data item:`, JSON.stringify(item, null, 2));
+      
+      // Generate a unique call ID if not provided or if it's a duplicate
+      const generateNewCallId = (): string => `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      let callId = item.id || item.ID?.toString() || generateNewCallId();
+      
+      // If this is a duplicate of an existing call but with different data, generate a new ID
+      const isDuplicate = existingCalls.some((existingCall: CallData) => {
+        return existingCall.id === callId && 
+               existingCall.caller_name !== (item.caller_name || item['Caller Name']);
+      });
+      
+      if (isDuplicate) {
+        const oldId = callId;
+        callId = generateNewCallId();
+        console.log(`🔄 [${requestId}] Duplicate call ID detected (${oldId}), using new ID: ${callId}`);
+      }
+      console.log(`🆔 [${requestId}] Using call ID: ${callId}`);
       
       try {
         // Parse and validate timestamps
         let callStart: Date;
         let callEnd: Date;
+        let duration: number;
         
         try {
-          callStart = new Date(item.call_start || item['Call Start'] || new Date().toISOString());
-          callEnd = new Date(item.call_end || item['Call End'] || new Date().toISOString());
+          const startTime = item.call_start || item['Call Start'] || new Date().toISOString();
+          const endTime = item.call_end || item['Call End'] || new Date().toISOString();
+          
+          console.log(`⏱️ [${requestId}] Parsing timestamps:`, { startTime, endTime });
+          
+          callStart = new Date(startTime);
+          callEnd = new Date(endTime);
           
           if (isNaN(callStart.getTime()) || isNaN(callEnd.getTime())) {
+            console.error(`❌ [${requestId}] Invalid date format for call ${callId}`, {
+              call_start: item.call_start,
+              call_end: item.call_end,
+              'Call Start': item['Call Start'],
+              'Call End': item['Call End']
+            });
             throw new Error('Invalid date format');
           }
+          
+          duration = Math.max(0, Math.floor((callEnd.getTime() - callStart.getTime()) / 1000));
+          console.log(`⏱️ [${requestId}] Parsed timestamps:`, {
+            callStart: callStart.toISOString(),
+            callEnd: callEnd.toISOString(),
+            duration: `${duration}s`
+          });
+          
         } catch (dateError) {
           const errorMsg = `Invalid date format in call data (ID: ${callId})`;
-          console.error(`❌ ${errorMsg}:`, dateError);
-          saveErrors.push({ id: callId, error: errorMsg });
+          console.error(`❌ [${requestId}] ${errorMsg}:`, dateError);
+          saveErrors.push({ 
+            id: callId, 
+            error: errorMsg,
+            details: `Start: ${item.call_start}, End: ${item.call_end}`
+          });
           continue;
         }
         
-        // Calculate duration in seconds
-        const duration = Math.max(0, Math.floor((callEnd.getTime() - callStart.getTime()) / 1000));
-
-        // Parse cost with validation
+        // Parse cost with validation and detailed logging
         let cost: number;
         try {
-          cost = typeof item.cost === 'number' 
-            ? item.cost 
-            : typeof item.Cost === 'number' 
-              ? item.Cost 
-              : typeof item.cost === 'string' 
-                ? parseFloat(item.cost) || 0 
-                : typeof item.Cost === 'string' 
-                  ? parseFloat(item.Cost) || 0 
-                  : 0;
+          const rawCost = item.cost ?? item.Cost;
+          console.log(`💰 [${requestId}] Parsing cost for call ${callId}:`, { rawCost, type: typeof rawCost });
+          
+          cost = typeof rawCost === 'number' 
+            ? rawCost 
+            : typeof rawCost === 'string' 
+              ? parseFloat(rawCost) || 0 
+              : 0;
           
           if (isNaN(cost) || !isFinite(cost)) {
-            throw new Error('Invalid cost value');
+            console.warn(`⚠️ [${requestId}] Invalid cost value for call ${callId}:`, rawCost);
+            cost = 0;
+          } else {
+            cost = Math.max(0, parseFloat(cost.toFixed(4))); // Ensure non-negative with 4 decimal places
+            console.log(`✅ [${requestId}] Parsed cost for call ${callId}:`, cost);
           }
-          cost = Math.max(0, parseFloat(cost.toFixed(4))); // Ensure non-negative with 4 decimal places
         } catch (costError) {
-          console.warn(`⚠️ Invalid cost for call ${callId}, defaulting to 0:`, costError);
+          console.warn(`⚠️ [${requestId}] Error parsing cost for call ${callId}, defaulting to 0:`, costError);
           cost = 0;
         }
 
         // Transform the data to match our CallData interface with validation
+        const callerName = item.caller_name || item['Caller Name'] || 'Unknown Caller';
+        const phone = item.phone || '';
+        const transcript = item.transcript || item.Summary || '';
+        
         const callData: CallData = {
           id: callId,
-          caller_name: (item.caller_name || item['Caller Name']?.toString() || 'Unknown Caller').substring(0, 255),
-          phone: (item.phone?.toString() || '').substring(0, 50),
+          caller_name: callerName.toString().substring(0, 255),
+          phone: phone.toString().substring(0, 50),
           call_start: callStart.toISOString(),
           call_end: callEnd.toISOString(),
           duration: duration,
-          transcript: (item.transcript || item.Summary?.toString() || '').substring(0, 10000),
+          transcript: transcript.toString().substring(0, 10000),
           success_flag: item.success_flag !== undefined 
             ? Boolean(item.success_flag) 
             : (item.Success !== undefined ? Boolean(item.Success) : false),
           cost: cost
         };
+        
+        console.log(`📋 [${requestId}] Transformed call data for ${callId}:`, {
+          ...callData,
+          transcript: callData.transcript.length > 50 
+            ? callData.transcript.substring(0, 50) + '...' 
+            : callData.transcript
+        });
         
         // Log processed data (sensitive info redacted)
         console.log(`📊 [${requestId}] Processed call data for ${callId}:`, {

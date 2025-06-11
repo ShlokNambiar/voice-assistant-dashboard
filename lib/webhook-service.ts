@@ -26,46 +26,105 @@ const INITIAL_BALANCE = 5000; // ₹5000 starting balance
 
 // Save call data to the database
 export async function saveCallData(call: CallData) {
+  const startTime = Date.now();
+  const callId = call.id || 'unknown';
+  
   try {
-    console.log('💽 Saving call to database:', {
-      ...call,
-      call_start: new Date(call.call_start).toISOString(),
-      call_end: new Date(call.call_end).toISOString()
+    console.log(`💽 [${new Date().toISOString()}] Starting database save for call:`, {
+      id: callId,
+      caller: call.caller_name,
+      timestamp: new Date(call.call_start).toISOString(),
+      duration: call.duration,
+      cost: call.cost
     });
 
     // First check if a record with this ID already exists
+    console.log(`🔍 [${callId}] Checking for existing record...`);
     const existingRecord = await sql`
-      SELECT id FROM calls WHERE id = ${call.id} LIMIT 1;
+      SELECT id, call_start, caller_name FROM calls WHERE id = ${callId} LIMIT 1;
     `;
+    
+    console.log(`🔍 [${callId}] Existing record check:`, {
+      exists: existingRecord.rows.length > 0,
+      existingData: existingRecord.rows[0] || null
+    });
 
     // Only insert if the record doesn't exist
     if (!existingRecord.rows.length) {
+      console.log(`📝 [${callId}] No existing record found, preparing to insert...`);
+      
+      const insertData = {
+        id: callId,
+        caller_name: call.caller_name,
+        phone: call.phone || '',
+        call_start: new Date(call.call_start).toISOString(),
+        call_end: new Date(call.call_end).toISOString(),
+        duration: call.duration,
+        transcript: call.transcript || '', // Ensure transcript is never null
+        success_flag: call.success_flag,
+        cost: call.cost
+      };
+      
+      console.log(`📥 [${callId}] Inserting call data:`, JSON.stringify(insertData, null, 2));
+      
       const result = await sql`
         INSERT INTO calls (
           id, caller_name, phone, call_start, call_end, 
           duration, transcript, success_flag, cost
         ) VALUES (
-          ${call.id},
-          ${call.caller_name},
-          ${call.phone},
-          ${new Date(call.call_start).toISOString()},
-          ${new Date(call.call_end).toISOString()},
-          ${call.duration},
-          ${call.transcript || null},
-          ${call.success_flag},
-          ${call.cost}
+          ${insertData.id},
+          ${insertData.caller_name},
+          ${insertData.phone},
+          ${insertData.call_start},
+          ${insertData.call_end},
+          ${insertData.duration},
+          ${insertData.transcript},
+          ${insertData.success_flag},
+          ${insertData.cost}
         )
-        RETURNING id
+        RETURNING id, call_start, caller_name
       `;
-      console.log('✅ New call record created:', result.rows[0]?.id);
-      return result;
+      
+      const insertedRecord = result.rows[0];
+      console.log(`✅ [${callId}] Successfully created record:`, {
+        id: insertedRecord.id,
+        caller: insertedRecord.caller_name,
+        timestamp: insertedRecord.call_start,
+        duration: Date.now() - startTime + 'ms'
+      });
+      
+      return { success: true, id: insertedRecord.id };
     } else {
-      console.log('ℹ️ Call record already exists, skipping insert:', call.id);
-      return { rows: [{ id: call.id }] };
+      const existing = existingRecord.rows[0];
+      console.log(`ℹ️ [${callId}] Record already exists, skipping insert. Details:`, {
+        existingCaller: existing.caller_name,
+        existingTimestamp: existing.call_start,
+        newCaller: call.caller_name,
+        newTimestamp: call.call_start
+      });
+      return { success: true, id: callId, existing: true };
     }
   } catch (error) {
-    console.error('❌ Error in saveCallData:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error(`❌ [${callId}] Error in saveCallData (${Date.now() - startTime}ms):`, {
+      error: errorMessage,
+      stack: errorStack,
+      callData: {
+        id: callId,
+        caller: call.caller_name,
+        start: call.call_start,
+        duration: call.duration,
+        cost: call.cost
+      }
+    });
+    
+    // Re-throw the error with additional context
+    const dbError = new Error(`Failed to save call ${callId}: ${errorMessage}`);
+    (dbError as any).originalError = error;
+    (dbError as any).callId = callId;
+    throw dbError;
   }
 }
 
