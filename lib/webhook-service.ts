@@ -6,7 +6,7 @@ export interface CallData {
   phone: string
   call_start: Date | string
   call_end: Date | string
-  duration: string
+  duration: string | number // Can be either string (e.g., "2m 30s") or number (seconds)
   transcript: string
   success_flag: boolean | null // true = success, false = failed, null = incomplete
   cost: number // Cost in rupees
@@ -103,62 +103,68 @@ export async function fetchWebhookData(): Promise<CallData[]> {
   return getAllCalls();
 }
 
-// Calculate duration between two dates in "Xm Ys" format
-export function calculateDuration(startTime: string | Date, endTime: string | Date): string {
-  try {
-    const start = new Date(startTime)
-    const end = new Date(endTime)
-    
-    // Handle invalid dates
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      console.error('Invalid date in calculateDuration:', { startTime, endTime })
-      return '0m 0s'
-    }
-    
-    const diffMs = end.getTime() - start.getTime()
-    const diffSeconds = Math.floor(Math.abs(diffMs) / 1000) // Use absolute value
-
-    const minutes = Math.floor(diffSeconds / 60)
-    const seconds = diffSeconds % 60
-
-    return `${minutes}m ${seconds}s`
-  } catch (error) {
-    console.error('Error calculating duration:', error)
+// Format seconds into "Xm Ys" format
+function formatDuration(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) {
     return '0m 0s'
   }
+  
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  const hours = Math.floor(mins / 60)
+  
+  if (hours > 0) {
+    return `${hours}h ${mins % 60}m ${secs}s`
+  }
+  
+  return `${mins}m ${secs}s`
+}
+
+// Calculate duration between two dates in seconds
+function calculateDuration(startTime: string | Date, endTime: string | Date): number {
+  const start = new Date(startTime).getTime()
+  const end = new Date(endTime).getTime()
+  const durationMs = end - start
+  
+  if (isNaN(durationMs) || durationMs < 0) {
+    return 0
+  }
+  
+  return Math.floor(durationMs / 1000)
 }
 
 export async function calculateMetrics(data: CallData[]): Promise<DashboardMetrics> {
   const totalCalls = data.length
-  const successfulCalls = data.filter(call => call.success_flag === true).length
-  const totalCost = data.reduce((sum, call) => sum + call.cost, 0)
-  const currentBalance = INITIAL_BALANCE - totalCost
-
-  // Calculate average call duration
-  let totalDurationSeconds = 0
-  data.forEach(call => {
-    const [minutes, seconds] = call.duration.split('m ')
-    const mins = parseInt(minutes) || 0
-    const secs = parseInt(seconds.replace('s', '')) || 0
-    totalDurationSeconds += (mins * 60) + secs
-  })
-
-  const avgDurationSeconds = totalCalls > 0 ? Math.floor(totalDurationSeconds / totalCalls) : 0
-  const avgMinutes = Math.floor(avgDurationSeconds / 60)
-  const avgSeconds = avgDurationSeconds % 60
-  const avgCallDuration = `${avgMinutes}m ${avgSeconds}s`
-
-  const avgCallCost = totalCalls > 0 ? (totalCost / totalCalls).toFixed(2) : '0.00'
-  const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0
-
+  const successfulCalls = data.filter(call => call.success_flag).length
+  const totalCost = data.reduce((sum, call) => sum + (call.cost || 0), 0)
+  
+  // Calculate total duration in seconds
+  const totalDurationSeconds = data.reduce((total, call) => {
+    if (typeof call.duration === 'number') {
+      return total + call.duration
+    } else if (typeof call.duration === 'string') {
+      // Try to parse string duration (e.g., "2m 30s")
+      const match = call.duration.match(/(\d+)m\s*(\d*)s?/)
+      if (match) {
+        const minutes = parseInt(match[1]) || 0
+        const seconds = parseInt(match[2]) || 0
+        return total + (minutes * 60) + seconds
+      }
+    }
+    return total
+  }, 0)
+  
+  const avgCallDurationSeconds = totalCalls > 0 ? Math.round(totalDurationSeconds / totalCalls) : 0
+  const avgCallDuration = formatDuration(avgCallDurationSeconds)
+  
   return {
     totalCalls,
     avgCallDuration,
-    totalBalance: `₹${currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    avgCallCost: `₹${avgCallCost}`,
-    successRate: `${successRate}%`,
-    totalReservations: successfulCalls,
-    lastRefreshed: new Date().toLocaleTimeString(),
+    totalBalance: `₹${(INITIAL_BALANCE - totalCost).toFixed(2)}`,
+    avgCallCost: `₹${(totalCalls > 0 ? (totalCost / totalCalls) : 0).toFixed(2)}`,
+    successRate: totalCalls > 0 ? `${Math.round((successfulCalls / totalCalls) * 100)}%` : '0%',
+    totalReservations: data.filter(call => call.transcript?.toLowerCase().includes('reservation')).length,
+    lastRefreshed: new Date().toLocaleTimeString()
   }
 }
 
@@ -173,8 +179,13 @@ export function getCallsPerDayData(data: CallData[]) {
   return last14Days.map(date => {
     const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const callsOnDate = data.filter(call => {
-      const callDate = new Date(call.call_start)
-      return callDate.toDateString() === date.toDateString()
+      try {
+        const callDate = new Date(call.call_start)
+        return callDate.toDateString() === date.toDateString()
+      } catch (e) {
+        console.error('Error parsing call date:', call.call_start, e)
+        return false
+      }
     }).length
 
     return {
@@ -186,21 +197,34 @@ export function getCallsPerDayData(data: CallData[]) {
 
 // Function to get call duration distribution data
 export function getCallDurationData(data: CallData[]) {
-  const shortCalls = data.filter(call => {
-    const [minutes] = call.duration.split('m ')
-    return parseInt(minutes) < 1
-  }).length
+  let shortCalls = 0
+  let mediumCalls = 0
+  let longCalls = 0
 
-  const mediumCalls = data.filter(call => {
-    const [minutes] = call.duration.split('m ')
-    const mins = parseInt(minutes)
-    return mins >= 1 && mins <= 3
-  }).length
+  data.forEach(call => {
+    let minutes = 0
+    
+    if (typeof call.duration === 'number') {
+      // Duration is in seconds, convert to minutes
+      minutes = call.duration / 60
+    } else if (typeof call.duration === 'string') {
+      // Parse duration string (e.g., "2m 30s")
+      const match = call.duration.match(/(\d+)m\s*(\d*)s?/)
+      if (match) {
+        minutes = parseInt(match[1]) || 0
+        const seconds = parseInt(match[2]) || 0
+        minutes += seconds / 60
+      }
+    }
 
-  const longCalls = data.filter(call => {
-    const [minutes] = call.duration.split('m ')
-    return parseInt(minutes) > 3
-  }).length
+    if (minutes < 1) {
+      shortCalls++
+    } else if (minutes <= 3) {
+      mediumCalls++
+    } else {
+      longCalls++
+    }
+  })
 
   return [
     { name: "< 1 min", value: shortCalls, color: "#06B6D4" },
